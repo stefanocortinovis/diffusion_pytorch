@@ -38,9 +38,20 @@ In general, this PyTorch version consumes less memory but runs slower than JAX. 
 
 ## How to run the code
 
+### Installing Python 3.8 on Ubuntu
+
+Some of the dependencies (i.e. `tensorflow==2.4.0`) necessary to run the code in this repository require Python 3.8. It is recommended to install them in a virtual environment. Run the following to create and activate a Python 3.8 virtual environment on Ubuntu
+```sh
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt-get update
+sudo apt-get install python3.8 python3.8-venv
+python3.8 -m venv .env
+source .env/bin/activate
+```
+
 ### Dependencies
 
-Run the following to install a subset of necessary python packages for our code
+From within an activate Python 3.8 virtual environment, run the following to install a subset of necessary python packages for our code
 ```sh
 pip install -r requirements.txt
 ```
