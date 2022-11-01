@@ -398,24 +398,25 @@ def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
     Returns:
       Samples, number of function evaluations.
     """
-    all_samples = np.zeros((sde.N + 1, *shape)) if save_all else None
+    all_samples = np.zeros((sde.N + 2, *shape)) if save_all else None
 
     with torch.no_grad():
       # Initial sample
       x = sde.prior_sampling(shape).to(device)
       timesteps = torch.linspace(sde.T, eps, sde.N, device=device)
 
-      if save_all:
-        all_samples[0] = x.cpu().numpy()
-
       for i in tqdm(range(sde.N)):
-        t = timesteps[i]
-        vec_t = torch.ones(shape[0], device=t.device) * t
-        x, x_mean = corrector_update_fn(x, vec_t, model=model)
-        x, x_mean = predictor_update_fn(x, vec_t, model=model)
-
         if save_all:
-          all_samples[i + 1] = inverse_scaler(x_mean if denoise else x).cpu().numpy() 
+          all_samples[i] = inverse_scaler(x).cpu().numpy()
+
+        t = timesteps[i]
+        vec_t = torch.ones(shape[0], device=t.device, dtype=torch.float) * t
+        x, x_mean = corrector_update_fn(x.float(), vec_t, model=model)
+        x, x_mean = predictor_update_fn(x.float(), vec_t, model=model)
+
+      if save_all:
+        all_samples[-2] = inverse_scaler(x).cpu().numpy() # inverse_scaler(x_mean if denoise else x).cpu().numpy()
+        all_samples[-1] = inverse_scaler(x_mean).cpu().numpy()
 
       return inverse_scaler(x_mean if denoise else x), all_samples, sde.N * (n_steps + 1)
 

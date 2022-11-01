@@ -15,13 +15,12 @@ import tensorflow as tf
 import torch
 
 
-def sample(config, checkpoint_file, sample_dir, n=100, batch_size=100):
+def sample(config, checkpoint_file, sample_dir, n=None, batch_size=None):
     config.seed = 42
-    print(torch.cuda.is_available())
 
     # Set number of samples and batch size
-    config.eval.num_samples = n
-    config.eval.batch_size = batch_size
+    if n is not None: config.eval.num_samples = n
+    if batch_size is not None: config.eval.batch_size = batch_size
 
     # Create inverse scaler
     inverse_scaler = datasets.get_data_inverse_scaler(config)
@@ -68,11 +67,10 @@ def sample(config, checkpoint_file, sample_dir, n=100, batch_size=100):
         print(f"Sampling round: {r + 1}/{num_sampling_rounds}")
 
         _, all_samples, _ = sampling_fn(score_model)
-        print(all_samples.shape)
         all_samples = np.clip(all_samples.transpose((1, 0, 3, 4, 2)) * 255., 0, 255).astype(np.uint8)
         all_samples = all_samples.reshape((
             -1,
-            sde.N + 1,
+            sde.N + 2,
             config.data.image_size,
             config.data.image_size,
             config.data.num_channels
