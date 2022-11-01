@@ -9,3 +9,5 @@ absl-py==0.10.0
 torch>=1.7.0
 torchvision
 ninja
+jax==0.2.8
+jaxlib==0.1.60
