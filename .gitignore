@@ -22,3 +22,6 @@ dist/
 
 # Virtual environment
 .env/
+
+# Checkpoints and experiment results
+experiments/
