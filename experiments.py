@@ -47,7 +47,7 @@ def sample(config, checkpoint_file, sample_dir, n=100, batch_size=100):
         config.data.image_size,
         config.data.image_size
     )
-    sampling_fn = sampling.get_sampling_fn(config, sde, sampling_shape, inverse_scaler, sampling_eps)
+    sampling_fn = sampling.get_sampling_fn(config, sde, sampling_shape, inverse_scaler, sampling_eps, save_all=True)
 
     # Restore checkpoint
     state = restore_checkpoint(checkpoint_file, state, device=config.device)
@@ -63,25 +63,27 @@ def sample(config, checkpoint_file, sample_dir, n=100, batch_size=100):
     for r in range(num_sampling_rounds):
         print(f"Sampling round: {r + 1}/{num_sampling_rounds}")
 
-        samples, n = sampling_fn(score_model)
-        samples = np.clip(samples.permute(0, 2, 3, 1).cpu().numpy() * 255., 0, 255).astype(np.uint8)
-        samples = samples.reshape((
+        _, all_samples, _ = sampling_fn(score_model)
+        print(all_samples.shape)
+        all_samples = np.clip(all_samples.transpose((1, 0, 3, 4, 2)) * 255., 0, 255).astype(np.uint8)
+        all_samples = all_samples.reshape((
             -1,
+            sde.N + 1,
             config.data.image_size,
             config.data.image_size,
             config.data.num_channels
         ))
 
         # Write samples to disk
-        with tf.io.gfile.GFile(os.path.join(sample_dir, f"samples_{r}.npz"), "wb") as fout:
+        with tf.io.gfile.GFile(os.path.join(sample_dir, f"samples_batch_{r}.npz"), "wb") as fout:
             io_buffer = io.BytesIO()
-            np.savez_compressed(io_buffer, samples=samples)
+            np.savez_compressed(io_buffer, samples=all_samples)
             fout.write(io_buffer.getvalue())
 
 if __name__ == '__main__':
     # DDPM paths and configuration file for CIFAR10
-    dir_ddpm = Path('./samples/ddpm')
-    checkpoint_ddpm = Path('./exp/vp/cifar10_ddpm/checkpoint_14.pth')
     config_ddpm = get_config_ddpm_cifar10()
+    checkpoint_ddpm = Path('./experiments/cifar10_ddpm/checkpoints/checkpoint_14.pth')
+    dir_ddpm = Path('./experiments/cifar10_ddpm/samples')
 
     sample(config_ddpm, checkpoint_ddpm, dir_ddpm, n=100, batch_size=100)

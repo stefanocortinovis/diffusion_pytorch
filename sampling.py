@@ -79,7 +79,7 @@ def get_corrector(name):
   return _CORRECTORS[name]
 
 
-def get_sampling_fn(config, sde, shape, inverse_scaler, eps):
+def get_sampling_fn(config, sde, shape, inverse_scaler, eps, save_all=False):
   """Create a sampling function.
 
   Args:
@@ -118,7 +118,8 @@ def get_sampling_fn(config, sde, shape, inverse_scaler, eps):
                                  continuous=config.training.continuous,
                                  denoise=config.sampling.noise_removal,
                                  eps=eps,
-                                 device=config.device)
+                                 device=config.device,
+                                 save_all=save_all)
   else:
     raise ValueError(f"Sampler name {sampler_name} unknown.")
 
@@ -356,7 +357,7 @@ def shared_corrector_update_fn(x, t, sde, model, corrector, continuous, snr, n_s
 
 def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
                    n_steps=1, probability_flow=False, continuous=False,
-                   denoise=True, eps=1e-3, device='cuda'):
+                   denoise=True, eps=1e-3, device='cuda', save_all=False):
   """Create a Predictor-Corrector (PC) sampler.
 
   Args:
@@ -389,7 +390,7 @@ def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
                                           snr=snr,
                                           n_steps=n_steps)
 
-  def pc_sampler(model):
+  def pc_sampler(model, save_all=False):
     """ The PC sampler funciton.
 
     Args:
@@ -397,10 +398,15 @@ def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
     Returns:
       Samples, number of function evaluations.
     """
+    all_samples = np.zeros((sde.N + 1, *shape)) if save_all else None
+
     with torch.no_grad():
       # Initial sample
       x = sde.prior_sampling(shape).to(device)
       timesteps = torch.linspace(sde.T, eps, sde.N, device=device)
+
+      if save_all:
+        all_samples[0] = x.cpu().numpy()
 
       for i in tqdm(range(sde.N)):
         t = timesteps[i]
@@ -408,9 +414,12 @@ def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
         x, x_mean = corrector_update_fn(x, vec_t, model=model)
         x, x_mean = predictor_update_fn(x, vec_t, model=model)
 
-      return inverse_scaler(x_mean if denoise else x), sde.N * (n_steps + 1)
+        if save_all:
+          all_samples[i + 1] = inverse_scaler(x_mean if denoise else x).cpu().numpy() 
 
-  return pc_sampler
+      return inverse_scaler(x_mean if denoise else x), all_samples, sde.N * (n_steps + 1)
+
+  return lambda model: pc_sampler(model, save_all)
 
 
 def get_ode_sampler(sde, shape, inverse_scaler,
