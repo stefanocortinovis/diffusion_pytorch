@@ -21,6 +21,7 @@ import six
 import tensorflow as tf
 import tensorflow_gan as tfgan
 import tensorflow_hub as tfhub
+from tqdm import tqdm
 
 INCEPTION_TFHUB = 'https://tfhub.dev/tensorflow/tfgan/eval/inception/1'
 INCEPTION_OUTPUT = 'logits'
@@ -126,7 +127,7 @@ def run_inception_distributed(input_tensor,
   pool3 = []
   logits = [] if not inceptionv3 else None
   device_format = '/TPU:{}' if 'TPU' in str(jax.devices()[0]) else '/GPU:{}'
-  for i, tensor in enumerate(input_tensors):
+  for i, tensor in tqdm(enumerate(input_tensors)):
     with tf.device(device_format.format(i)):
       tensor_on_device = tf.identity(tensor)
       res = run_inception_jit(
@@ -144,3 +145,26 @@ def run_inception_distributed(input_tensor,
       'pool_3': tf.concat(pool3, axis=0),
       'logits': tf.concat(logits, axis=0) if not inceptionv3 else None
     }
+
+@tf.function
+def run_inception(input_tensor,
+                  inception_model,
+                  num_batches=1,
+                  inceptionv3=False):
+  device = tf.device('/GPU' if 'Gpu' in str(jax.devices()[0]) else '/CPU')
+  with device:
+    tensor_on_device = tf.identity(input_tensor)
+    res = run_inception_jit(
+      tensor_on_device,
+      inception_model,
+      num_batches=num_batches,
+      inceptionv3=inceptionv3
+    )
+
+  with tf.device('/CPU'):
+    return {
+      'pool_3': res['pool_3'],
+      'logits': res['logits'] if not inceptionv3 else None
+    }
+  
+
