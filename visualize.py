@@ -23,10 +23,5 @@ def make_gif(samples_dir, n_rows):
             image_grid = make_grid(all_samples[:, t].permute(0, 3, 1, 2), nrow=n_rows)
             # image_grid = make_grid(all_samples[:, t].permute(0, 3, 1, 2), nrow=10, normalize=True, value_range=(0, 255))
             imgs.append(Image.fromarray(image_grid.permute(1, 2, 0).cpu().numpy()))
-    imgs[0].save(os.path.join(samples_dir, f'cifar10_ddpm_{n_rows ** 2}.gif'), save_all=True, append_images=imgs[1:], duration=0.1, loop=0)
+    imgs[0].save(os.path.join(samples_dir, f'samples_{n_rows ** 2}.gif'), save_all=True, append_images=imgs[1:], duration=1, loop=0)
 
-
-if __name__ == '__main__':
-    samples_dir = './experiments/cifar10_ddpm/samples'
-    n_rows = 10
-    make_gif(samples_dir, n_rows)

@@ -25,3 +25,6 @@ dist/
 
 # Checkpoints and experiment results
 experiments/
+
+# Stats files for quantitative evaluation
+assets/stats/
