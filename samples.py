@@ -1,26 +1,23 @@
-"""
-Reproduce experiments on CIFAR-10 for DDPM and NCSN
-"""
-
 import datasets
 import losses
 import sampling
 import sde_lib
-from configs.vp.ddpm.cifar10 import get_config as get_config_ddpm_cifar10
 from models import utils as mutils
-from models import ddpm
+from models import ddpm, ncsnpp
 from models.ema import ExponentialMovingAverage
 from utils import restore_checkpoint
 
 import io
 import os
-from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
+import torch
+
 
 def sample(config, checkpoint_file, sample_dir, n=100, batch_size=100):
     config.seed = 42
+    print(torch.cuda.is_available())
 
     # Set number of samples and batch size
     config.eval.num_samples = n
@@ -36,8 +33,15 @@ def sample(config, checkpoint_file, sample_dir, n=100, batch_size=100):
     state = dict(optimizer=optimizer, model=score_model, ema=ema, step=0)
 
     # Setup SDEs
-    sde = sde_lib.VPSDE(beta_min=config.model.beta_min, beta_max=config.model.beta_max, N=config.model.num_scales)
-    sampling_eps = 1e-3
+    if config.training.sde.lower() == 'vpsde':
+        sde = sde_lib.VPSDE(beta_min=config.model.beta_min, beta_max=config.model.beta_max, N=config.model.num_scales)
+        sampling_eps = 1e-3
+    elif config.training.sde.lower() == 'subvpsde':
+        sde = sde_lib.subVPSDE(beta_min=config.model.beta_min, beta_max=config.model.beta_max, N=config.model.num_scales)
+        sampling_eps = 1e-3
+    elif config.training.sde.lower() == 'vesde':
+        sde = sde_lib.VESDE(sigma_min=config.model.sigma_min, sigma_max=config.model.sigma_max, N=config.model.num_scales)
+        sampling_eps = 1e-5
 
 
     # Build the sampling function when sampling is enabled
@@ -79,11 +83,3 @@ def sample(config, checkpoint_file, sample_dir, n=100, batch_size=100):
             io_buffer = io.BytesIO()
             np.savez_compressed(io_buffer, samples=all_samples)
             fout.write(io_buffer.getvalue())
-
-if __name__ == '__main__':
-    # DDPM paths and configuration file for CIFAR10
-    config_ddpm = get_config_ddpm_cifar10()
-    checkpoint_ddpm = Path('./experiments/cifar10_ddpm/checkpoints/checkpoint_14.pth')
-    dir_ddpm = Path('./experiments/cifar10_ddpm/samples')
-
-    sample(config_ddpm, checkpoint_ddpm, dir_ddpm, n=100, batch_size=100)
