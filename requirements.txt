@@ -11,3 +11,4 @@ torchvision
 ninja
 jax==0.2.8
 jaxlib==0.1.60
+tensorflow-probability==0.12.2
